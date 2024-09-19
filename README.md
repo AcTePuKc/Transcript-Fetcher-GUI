@@ -48,8 +48,6 @@ language_dropdown['values'] = ('en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'ru', '
 
 - `pytubefix`
 - `youtube-transcript-api`
-- `pyperclip`
-- `tkinter-tooltip`
 
 Make sure you have Python 3.6+ installed before installing these dependencies.
 
