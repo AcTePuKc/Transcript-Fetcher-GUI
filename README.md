@@ -58,7 +58,4 @@ Make sure you have Python 3.6+ installed before installing these dependencies.
 This project uses the [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api/) created by [jdepoix](https://github.com/jdepoix). Special thanks for providing such a valuable tool to interact with YouTube’s transcript feature programmatically.
 
 ## To-Do
-
-1. Fix the UI [50/50 to Maybe never]
-2. Add more stuff [Not sure]
-3. Localise [Doubt that]
+1. Localization [Doubt that]
