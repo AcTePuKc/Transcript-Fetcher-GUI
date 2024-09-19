@@ -1,4 +1,2 @@
 pytubefix
 youtube-transcript-api
-pyperclip
-tkinter-tooltip

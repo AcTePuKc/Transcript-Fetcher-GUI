@@ -12,6 +12,12 @@ from youtube_transcript_api import (
     NoTranscriptFound,
     NoTranscriptAvailable,
 )
+from youtube_transcript_api.formatters import (
+    JSONFormatter,
+    TextFormatter,
+    SRTFormatter,
+    WebVTTFormatter
+)
 from utils import clean_filename
 
 def convert_short_url_to_full(url):
@@ -24,7 +30,6 @@ def convert_short_url_to_full(url):
         return f"https://www.youtube.com/watch?v={video_id}{list_param}"
     return url
 
-
 def is_playlist(url):
     parsed_url = urllib.parse.urlparse(url)
     query_params = urllib.parse.parse_qs(parsed_url.query)
@@ -36,7 +41,6 @@ def is_video(url):
     query_params = urllib.parse.parse_qs(parsed_url.query)
     return "v" in query_params and "list" not in query_params
 
-
 async def process_videos(
     url,
     output_formats,
@@ -45,26 +49,27 @@ async def process_videos(
     console_output,
     update_recent_downloads,
     stop_event,
-    file_policy
+    file_policy,
+    progress_bar_callback
 ):
     try:
         video_urls = []
         if is_playlist(url):
-            console_output("Processing playlist...")
+            console_output("Processing playlist...", "info")
             playlist = Playlist(url)
             video_urls = playlist.video_urls  # List of video URLs
         elif is_video(url):
             video_urls = [convert_short_url_to_full(url)]  # Convert if necessary
         else:
-            console_output("Invalid URL. Please enter a valid YouTube video or playlist URL.")
+            console_output("Invalid URL. Please enter a valid YouTube video or playlist URL.", "error")
             return
 
         total_videos = len(video_urls)
         for idx, video_url in enumerate(video_urls, 1):
             if stop_event.is_set():
-                console_output("Download cancelled by user.")
+                console_output("Download cancelled by user.", "info")
                 break
-            console_output(f"Processing video {idx}/{total_videos}: {video_url}")
+            console_output(f"Processing video {idx}/{total_videos}: {video_url}", "info")
             await process_single_video(
                 video_url,
                 output_formats,
@@ -75,8 +80,9 @@ async def process_videos(
                 stop_event,
                 file_policy
             )
+            progress_bar_callback(idx, total_videos)
     except Exception as e:
-        console_output(f"An error occurred: {e}")
+        console_output(f"An error occurred: {e}", "error")
 
 async def process_single_video(
     video_url,
@@ -94,7 +100,7 @@ async def process_single_video(
         yt = YouTube(video_url)
         video_id = yt.video_id
         video_title = yt.title
-        console_output(f"Fetching transcript for: {video_title}")
+        console_output(f"Fetching transcript for: {video_title}", "info")
 
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         transcript = transcript_list.find_transcript([language])
@@ -103,67 +109,113 @@ async def process_single_video(
         filename = clean_filename(video_title)
         processed = False  # Flag to track if the video was actually processed
 
-        if "txt" in output_formats:
-            if save_transcript_as_txt(transcript_data, filename, save_directory, file_policy):
-                processed = True
-        if "json" in output_formats:
-            if save_transcript_as_json(transcript_data, filename, save_directory, file_policy):
-                processed = True
-
-        # Only update recent downloads if the video was actually processed
-        if processed:
-            update_recent_downloads(video_title, video_url)
-            console_output(f"Successfully processed: {video_title}")
+        # Save in the selected format
+        selected_format = output_formats[0]  # Only one format selected
+        if selected_format == "txt":
+            file_saved, file_path = save_transcript_as_txt(transcript_data, filename, save_directory, file_policy)
+        elif selected_format == "json":
+            file_saved, file_path = save_transcript_as_json(transcript_data, filename, save_directory, file_policy)
+        elif selected_format == "srt":
+            file_saved, file_path = save_transcript_as_srt(transcript_data, filename, save_directory, file_policy)
+        elif selected_format == "vtt":
+            file_saved, file_path = save_transcript_as_vtt(transcript_data, filename, save_directory, file_policy)
         else:
-            console_output(f"Skipped: {video_title} (file already exists)")
+            console_output(f"Unsupported format selected: {selected_format}", "error")
+            file_saved = False
+            file_path = ""
+
+        if file_saved:
+            update_recent_downloads(video_title, video_url, file_path)
+            console_output(f"Successfully processed: {video_title}", "success")
+        else:
+            console_output(f"Skipped: {video_title} (file already exists)", "info")
     except (TranscriptsDisabled, NoTranscriptFound, NoTranscriptAvailable) as e:
-        console_output(f"Transcript not available for {video_url}: {e}")
+        console_output(f"Transcript not available for {video_url}: {e}", "error")
     except Exception as e:
-        console_output(f"Could not process {video_url}: {e}")
+        console_output(f"Could not process {video_url}: {e}", "error")
 
 def save_transcript_as_txt(transcript_data, filename, save_directory, file_policy):
     os.makedirs(save_directory, exist_ok=True)
     file_path = os.path.join(save_directory, f"{filename}.txt")
     
-    # Skip if the file exists and the policy is 'skip'
-    if file_policy == 'skip' and os.path.exists(file_path):
-        return False
+    # Handle file policy
+    file_path = handle_file_policy(file_path, file_policy, filename, 'txt')
+    if not file_path:
+        return False, ""
 
-    # Handle append case
-    if file_policy == 'append' and os.path.exists(file_path):
-        counter = 1
-        while os.path.exists(os.path.join(save_directory, f"{filename}_{counter}.txt")):
-            counter += 1
-        file_path = os.path.join(save_directory, f"{filename}_{counter}.txt")
+    # Concatenate all transcript texts into a single paragraph
+    transcript_text = " ".join([entry['text'].replace('\n', ' ') for entry in transcript_data])
 
-    # Save the transcript
-    text = ' '.join([entry['text'].strip() for entry in transcript_data])
-    text = re.sub(r'\s+', ' ', text)
-    wrapped_text = textwrap.fill(text, width=80, replace_whitespace=False)
-    
     with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(wrapped_text)
+        f.write(transcript_text)
 
-    return True
-
+    return True, file_path
 
 def save_transcript_as_json(transcript_data, filename, save_directory, file_policy):
     os.makedirs(save_directory, exist_ok=True)
     file_path = os.path.join(save_directory, f"{filename}.json")
     
-    # Skip if the file exists and the policy is 'skip'
-    if file_policy == 'skip' and os.path.exists(file_path):
-        return False
+    # Handle file policy
+    file_path = handle_file_policy(file_path, file_policy, filename, 'json')
+    if not file_path:
+        return False, ""
 
-    # Handle append case
-    if file_policy == 'append' and os.path.exists(file_path):
-        counter = 1
-        while os.path.exists(os.path.join(save_directory, f"{filename}_{counter}.json")):
-            counter += 1
-        file_path = os.path.join(save_directory, f"{filename}_{counter}.json")
+    # Save the transcript using JSONFormatter
+    formatter = JSONFormatter()
+    formatted_json = formatter.format_transcript(transcript_data)
 
-    # Save the transcript
     with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(transcript_data, f, ensure_ascii=False, indent=4)
+        f.write(formatted_json)
 
-    return True
+    return True, file_path
+
+def save_transcript_as_srt(transcript_data, filename, save_directory, file_policy):
+    os.makedirs(save_directory, exist_ok=True)
+    file_path = os.path.join(save_directory, f"{filename}.srt")
+    
+    # Handle file policy
+    file_path = handle_file_policy(file_path, file_policy, filename, 'srt')
+    if not file_path:
+        return False, ""
+
+    # Save the transcript using SRTFormatter
+    formatter = SRTFormatter()
+    formatted_srt = formatter.format_transcript(transcript_data)
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(formatted_srt)
+
+    return True, file_path
+
+def save_transcript_as_vtt(transcript_data, filename, save_directory, file_policy):
+    os.makedirs(save_directory, exist_ok=True)
+    file_path = os.path.join(save_directory, f"{filename}.vtt")
+    
+    # Handle file policy
+    file_path = handle_file_policy(file_path, file_policy, filename, 'vtt')
+    if not file_path:
+        return False, ""
+
+    # Save the transcript using WebVTTFormatter
+    formatter = WebVTTFormatter()
+    formatted_vtt = formatter.format_transcript(transcript_data)
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(formatted_vtt)
+
+    return True, file_path
+
+def handle_file_policy(file_path, policy, filename, extension):
+    if policy.lower() == 'skip' and os.path.exists(file_path):
+        return None
+    elif policy.lower() == 'overwrite':
+        return file_path
+    elif policy.lower() == 'append number':
+        counter = 1
+        new_file_path = file_path
+        while os.path.exists(new_file_path):
+            new_file_path = os.path.join(os.path.dirname(file_path), f"{filename}_{counter}.{extension}")
+            counter += 1
+        return new_file_path
+    else:
+        return file_path  # Default to overwrite if policy is unrecognized

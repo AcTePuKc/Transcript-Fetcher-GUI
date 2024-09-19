@@ -21,6 +21,7 @@ def load_recent_downloads():
 def save_recent_downloads(recent_downloads):
     with open('recent_downloads.json', 'w', encoding='utf-8') as f:
         json.dump(recent_downloads, f, ensure_ascii=False, indent=4)
+
 # Function to load settings
 def load_settings():
     if os.path.exists('settings.json'):
