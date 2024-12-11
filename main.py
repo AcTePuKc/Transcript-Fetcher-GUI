@@ -16,13 +16,26 @@ from utils import (
 )
 from transcript_fetcher import process_videos
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 # Initialize the main window
 root = tk.Tk()
 root.title("YouTube Transcript Downloader")
 root.geometry("900x600")
+root.iconbitmap(resource_path("icon.ico" if sys.platform.startswith("win") else "icon.ico"))
 
 # Load settings
 settings = load_settings()
+dark_mode = settings.get("dark_mode", False)
+
+
 
 # Variables to store settings with defaults
 save_directory_var = tk.StringVar(
@@ -30,10 +43,99 @@ save_directory_var = tk.StringVar(
 )
 recent_downloads = load_recent_downloads()
 
+# Theme variable
+dark_mode = False
+
+# Function to toggle between dark and light themes
+def toggle_theme():
+    global dark_mode
+    if not globals().get("recent_frame"):  # Check if UI elements are initialized
+        return
+    dark_mode = not dark_mode
+    settings["dark_mode"] = dark_mode  # Save to settings
+    save_settings(settings)  # Update settings.json
+
+    # Create a ttk.Style instance for comboboxes
+    style = ttk.Style()
+
+    if dark_mode:
+        # Set dark mode colors
+        root.configure(bg="#2e2e2e")
+        recent_frame.configure(bg="#2e2e2e")
+        input_frame.configure(bg="#2e2e2e")
+        format_frame.configure(bg="#2e2e2e")
+        console_frame.configure(bg="#2e2e2e")
+        console_text.configure(bg="#1e1e1e", fg="white", insertbackground="white")
+        console_text.tag_configure("info", foreground="white")  # Normal text in white
+        console_text.tag_configure("error", foreground="red")   # Errors in red
+        console_text.tag_configure("success", foreground="lightgreen")  # Success messages
+        recent_label.configure(bg="#2e2e2e", fg="white")
+        status_bar.configure(bg="#2e2e2e", fg="white")
+        console_text.configure(bg="#1e1e1e", fg="white", insertbackground="white")  # Ensure cursor is visible
+        recent_listbox.configure(bg="#1e1e1e", fg="white")
+        clear_button.configure(bg="#3a3a3a", fg="white")
+        theme_button.configure(bg="#3a3a3a", fg="white")
+        url_label.configure(bg="#2e2e2e", fg="white")
+        format_label.configure(bg="#2e2e2e", fg="white")
+        language_label.configure(bg="#2e2e2e", fg="white")
+        file_handling_label.configure(bg="#2e2e2e", fg="white")
+        download_button.configure(bg="#3a3a3a", fg="white")
+        cancel_button.configure(bg="#3a3a3a", fg="white")
+        clear_console_button.configure(bg="#3a3a3a", fg="white")
+        save_dir_button.configure(bg="#3a3a3a", fg="white")
+
+        # Style ttk.Combobox for dark mode
+        style.theme_use("default")
+        style.map(
+        "TCombobox",
+        fieldbackground=[("readonly", "#3a3a3a")],  # Darker gray for better contrast
+        background=[("readonly", "#2e2e2e")],  # Dropdown menu background
+        foreground=[("readonly", "white")],  # Default text color when not selected
+    )
+    else:
+        # Reset to light mode colors
+        root.configure(bg="SystemButtonFace")
+        recent_frame.configure(bg="SystemButtonFace")
+        recent_label.configure(bg="SystemButtonFace", fg="black")
+        input_frame.configure(bg="SystemButtonFace")
+        format_frame.configure(bg="SystemButtonFace")
+        console_frame.configure(bg="SystemButtonFace")
+        status_bar.configure(bg="SystemButtonFace", fg="black")
+        console_text.configure(bg="white", fg="black", insertbackground="black")
+        console_text.configure(bg="white", fg="black", insertbackground="black")
+        console_text.tag_configure("info", foreground="black")  # Normal text in black
+        console_text.tag_configure("error", foreground="red")   # Errors in red
+        console_text.tag_configure("success", foreground="green")  # Success messages
+        recent_listbox.configure(bg="white", fg="black")
+        clear_button.configure(bg="SystemButtonFace", fg="black")
+        theme_button.configure(bg="SystemButtonFace", fg="black")
+        url_label.configure(bg="SystemButtonFace", fg="black")
+        format_label.configure(bg="SystemButtonFace", fg="black")
+        language_label.configure(bg="SystemButtonFace", fg="black")
+        file_handling_label.configure(bg="SystemButtonFace", fg="black")
+        download_button.configure(bg="SystemButtonFace", fg="black")
+        cancel_button.configure(bg="SystemButtonFace", fg="black")
+        clear_console_button.configure(bg="SystemButtonFace", fg="black")
+        save_dir_button.configure(bg="SystemButtonFace", fg="black")
+
+        # Reset ttk.Combobox styling for light mode
+        style.theme_use("default")
+        style.map(
+        "TCombobox",
+        fieldbackground=[("readonly", "white")],
+        background=[("readonly", "SystemButtonFace")],
+        foreground=[("readonly", "black")],
+    )
+
+
 # Output Formats
 output_formats = ["TXT", "JSON", "SRT", "VTT"]
 output_format_default = settings.get("output_format", "TXT")
 output_format_var = tk.StringVar(value=output_format_default)
+
+# Apply theme at startup
+if dark_mode:
+    toggle_theme()  # Set the UI to dark mode
 
 # Language Selection
 language_var = tk.StringVar(value=settings.get("language", "en"))
@@ -50,6 +152,8 @@ def select_save_directory():
         save_settings(settings)
         console_output(f"Save directory set to: {directory}", "info")
 
+
+
 # Function to update recent downloads list
 def update_recent_downloads(title, url, file_path):
     global recent_downloads
@@ -61,10 +165,11 @@ def update_recent_downloads(title, url, file_path):
     save_recent_downloads(recent_downloads)
     # Update the listbox
     recent_listbox.delete(0, tk.END)
+    max_length = 100  # Change this value if needed
     for item in recent_downloads:
         display_title = item['title']
-        if len(display_title) > 50:
-            display_title = display_title[:47] + '...'
+        if len(display_title) > max_length:
+            display_title = display_title[:max_length - 3] + '...'
         recent_listbox.insert(tk.END, display_title)
 
 # Function to clear recent downloads
@@ -74,6 +179,10 @@ def clear_recent_downloads():
     save_recent_downloads(recent_downloads)
     recent_listbox.delete(0, tk.END)
     console_output("Recent downloads cleared.", "info")
+# Save pane position
+def save_pane_position(event):
+    settings["pane_position"] = pane_window.sash_coord(0)[0]
+    save_settings(settings)
 
 # Function to clear the console output
 def clear_console():
@@ -116,6 +225,13 @@ def console_output(message, msg_type="info"):
     # Update the status bar with the latest message
     status_var.set(message)
     update_clear_console_button()
+
+    # Icon handling code
+    try:
+        root.iconbitmap(default=os.path.join(os.getcwd(), "icon.ico"))
+        root.iconbitmap(default=os.path.join(os.getcwd(), "icon_16.ico"))
+    except Exception as e:
+        console_output(f"Failed to load icon: {e}", "error")
 
 # Function to update the state of the "Clear Console" button
 def update_clear_console_button():
@@ -208,13 +324,35 @@ def progress_bar_wrapper(current, total):
 # =======================
 # Layout Configuration
 # =======================
+# Create a PanedWindow for resizable panes
+pane_window = tk.PanedWindow(root, orient=tk.HORIZONTAL)
+pane_window.pack(fill=tk.BOTH, expand=True)
+pane_window.bind("<ButtonRelease-1>", save_pane_position)
 
 # Left Pane: Recent Downloads
-recent_frame = tk.Frame(root, width=200)
-recent_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
-
+recent_frame = tk.Frame(pane_window, width=200)
 recent_label = tk.Label(recent_frame, text="Recent Downloads")
 recent_label.pack()
+
+# Restore pane position
+saved_position = settings.get("pane_position", None)
+
+def restore_pane_position():
+    # Wait until the main loop initializes the pane
+    root.update_idletasks()  # Ensures window and layout are fully initialized
+    window_width = root.winfo_width()
+    try:
+        if saved_position is not None and isinstance(saved_position, (int, float)) and 0 <= saved_position <= window_width:
+            pane_window.sash_place(0, int(saved_position), 0)
+        else:
+            # Default to a valid middle position
+            pane_window.sash_place(0, window_width // 3, 0)
+    except tk.TclError as e:
+        print(f"Error restoring pane position: {e}")
+
+# Call restore after everything is set up
+root.after(100, restore_pane_position)
+
 
 # Inner frame for Listbox and Scrollbar
 listbox_frame = tk.Frame(recent_frame)
@@ -236,9 +374,15 @@ listbox_frame.grid_columnconfigure(0, weight=1)
 clear_button = tk.Button(recent_frame, text="Clear", command=clear_recent_downloads)
 clear_button.pack(pady=5)
 
+pane_window.add(recent_frame)
+
 # Center Pane: Input and Controls
 input_frame = tk.Frame(root)
 input_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
+
+# Dark mode toggle button
+theme_button = tk.Button(input_frame, text="Toggle Dark Mode", command=toggle_theme)
+theme_button.grid(row=0, column=4, padx=(20, 0))
 
 # URL Entry
 url_label = tk.Label(input_frame, text="YouTube URL:")
@@ -295,11 +439,10 @@ progress_bar = ttk.Progressbar(root, orient='horizontal', mode='determinate', le
 # Initially hidden; packed when download starts
 
 # Console Output
-console_frame = tk.Frame(root)
-console_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
-
+console_frame = tk.Frame(pane_window)
 console_text = tk.Text(console_frame, state='disabled', height=15)
 console_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
 
 # Configure colored tags
 configure_console_tags()
@@ -309,17 +452,24 @@ console_scrollbar = tk.Scrollbar(console_frame, command=console_text.yview)
 console_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 console_text.config(yscrollcommand=console_scrollbar.set)
 
+pane_window.add(console_frame)
+
 # Status Bar at the bottom
 status_var = tk.StringVar()
 status_bar = tk.Label(root, textvariable=status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
 status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
 # Populate the recent downloads list initially
+max_length = 100  # Change this value if needed
 for item in recent_downloads:
     display_title = item['title']
-    if len(display_title) > 50:
-        display_title = display_title[:47] + '...'
+    if len(display_title) > max_length:
+        display_title = display_title[:max_length - 3] + '...'
     recent_listbox.insert(tk.END, display_title)
+
+# Apply theme based on saved setting
+if settings.get("dark_mode", False):
+    toggle_theme()
 
 # Start the Tkinter event loop
 root.mainloop()
