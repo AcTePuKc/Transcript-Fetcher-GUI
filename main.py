@@ -1,485 +1,430 @@
-# main.py
-
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
-import threading
-import asyncio
 import os
-import subprocess
 import sys
-
-
+import asyncio
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy,
+    QLabel, QLineEdit, QPushButton, QComboBox, QListWidget, QTextEdit, QProgressBar, QFileDialog, QStatusBar, QSplitter, QMenu
+)
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QIcon
+from threading import Event
 from utils import (
-    load_recent_downloads,
-    save_recent_downloads,
-    load_settings,
-    save_settings,
-    resource_path,
-    paste_from_clipboard,
-)
-from transcript_fetcher import process_videos
-
-# Initialize the main window
-root = tk.Tk()
-root.title("YouTube Transcript Downloader")
-root.geometry("900x600")
-root.iconbitmap(resource_path("icon.ico" if sys.platform.startswith("win") else "icon.ico"))
-
-# Load settings
-settings = load_settings()
-dark_mode = settings.get("dark_mode", False)
-
-
-
-# Variables to store settings with defaults
-save_directory_var = tk.StringVar(
-    value=settings.get("save_directory", resource_path("downloads"))
-)
-recent_downloads = load_recent_downloads()
-
-# Theme variable
-dark_mode = False # Fallback to light mode at startup; toggle_theme may rely on this
-
-# Function to toggle between dark and light themes
-def toggle_theme():
-    global dark_mode
-    if not globals().get("recent_frame"):  # Check if UI elements are initialized
-        return
-    dark_mode = not dark_mode
-    settings["dark_mode"] = dark_mode  # Save to settings
-    save_settings(settings)  # Update settings.json
-
-    # Create a ttk.Style instance for comboboxes
-    style = ttk.Style()
-
-    if dark_mode:
-        # Set dark mode colors
-        root.configure(bg="#2e2e2e")
-        recent_frame.configure(bg="#2e2e2e")
-        input_frame.configure(bg="#2e2e2e")
-        format_frame.configure(bg="#2e2e2e")
-        console_frame.configure(bg="#2e2e2e")
-        console_text.configure(bg="#1e1e1e", fg="white", insertbackground="white")
-        console_text.tag_configure("info", foreground="white")  # Normal text in white
-        console_text.tag_configure("error", foreground="red")   # Errors in red
-        console_text.tag_configure("success", foreground="lightgreen")  # Success messages
-        recent_label.configure(bg="#2e2e2e", fg="white")
-        status_bar.configure(bg="#2e2e2e", fg="white")
-        recent_listbox.configure(bg="#1e1e1e", fg="white")
-        clear_button.configure(bg="#3a3a3a", fg="white")
-        theme_button.configure(bg="#3a3a3a", fg="white")
-        url_label.configure(bg="#2e2e2e", fg="white")
-        format_label.configure(bg="#2e2e2e", fg="white")
-        language_label.configure(bg="#2e2e2e", fg="white")
-        file_handling_label.configure(bg="#2e2e2e", fg="white")
-        download_button.configure(bg="#3a3a3a", fg="white")
-        cancel_button.configure(bg="#3a3a3a", fg="white")
-        clear_console_button.configure(bg="#3a3a3a", fg="white")
-        save_dir_button.configure(bg="#3a3a3a", fg="white")
-        open_dir_button.configure(bg="#3a3a3a", fg="white")
-        paste_button.configure(bg="#3a3a3a", fg="white")
-
-        # Style ttk.Combobox for dark mode
-        style.theme_use("default")
-        style.map(
-        "TCombobox",
-        fieldbackground=[("readonly", "#3a3a3a")],  # Darker gray for better contrast
-        background=[("readonly", "#2e2e2e")],  # Dropdown menu background
-        foreground=[("readonly", "white")],  # Default text color when not selected
+    load_settings, 
+    save_settings, 
+    paste_from_clipboard, 
+    load_recent_downloads, 
+    save_recent_downloads, 
+    resource_path, 
+    display_message,
+    update_progress_bar
     )
-    else:
-        # Reset to light mode colors
-        root.configure(bg="SystemButtonFace")
-        recent_frame.configure(bg="SystemButtonFace")
-        recent_label.configure(bg="SystemButtonFace", fg="black")
-        input_frame.configure(bg="SystemButtonFace")
-        format_frame.configure(bg="SystemButtonFace")
-        console_frame.configure(bg="SystemButtonFace")
-        status_bar.configure(bg="SystemButtonFace", fg="black")
-        console_text.configure(bg="white", fg="black", insertbackground="black")
-        console_text.configure(bg="white", fg="black", insertbackground="black")
-        console_text.tag_configure("info", foreground="black")  # Normal text in black
-        console_text.tag_configure("error", foreground="red")   # Errors in red
-        console_text.tag_configure("success", foreground="green")  # Success messages
-        recent_listbox.configure(bg="white", fg="black")
-        clear_button.configure(bg="SystemButtonFace", fg="black")
-        theme_button.configure(bg="SystemButtonFace", fg="black")
-        url_label.configure(bg="SystemButtonFace", fg="black")
-        format_label.configure(bg="SystemButtonFace", fg="black")
-        language_label.configure(bg="SystemButtonFace", fg="black")
-        file_handling_label.configure(bg="SystemButtonFace", fg="black")
-        download_button.configure(bg="SystemButtonFace", fg="black")
-        cancel_button.configure(bg="SystemButtonFace", fg="black")
-        clear_console_button.configure(bg="SystemButtonFace", fg="black")
-        save_dir_button.configure(bg="SystemButtonFace", fg="black")
-        open_dir_button.configure(bg="SystemButtonFace", fg="black")
-        paste_button.configure(bg="SystemButtonFace", fg="black")
-
-        # Reset ttk.Combobox styling for light mode
-        style.theme_use("default")
-        style.map(
-        "TCombobox",
-        fieldbackground=[("readonly", "white")],
-        background=[("readonly", "SystemButtonFace")],
-        foreground=[("readonly", "black")],
-    )
+from fetcher import process_videos
+import subprocess
 
 
-# Output Formats
-output_formats = ["TXT", "JSON", "SRT", "VTT"]
-output_format_default = settings.get("output_format", "TXT")
-output_format_var = tk.StringVar(value=output_format_default)
+# Ensure script directory is in Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Apply theme at startup
-if dark_mode:
-    toggle_theme()  # Set the UI to dark mode
+# Event handler for download progress
+class DownloadWorker(QThread):
+    progress_updated = Signal(int, int)
+    finished = Signal()
+    def __init__(self, url, output_formats, language, save_directory, console_output, update_recent_downloads, file_policy):
+        super().__init__()
+        self.url = url
+        self.output_formats = output_formats
+        self.language = language
+        self.save_directory = save_directory
+        self.console_output = console_output
+        self.update_recent_downloads = update_recent_downloads
+        self.file_policy = file_policy
+        self.stop_event = Event()
 
-# Language Selection
-language_var = tk.StringVar(value=settings.get("language", "en"))
+    def run(self):
+        asyncio.run(
+            process_videos(
+                self.url,
+                self.output_formats,
+                self.language,
+                self.save_directory,
+                lambda msg, level: display_message(self.console_output, msg, level),
+                self.update_recent_downloads,
+                self.stop_event,
+                self.file_policy,
+                lambda current, total: self.progress_updated.emit(current, total)
+            )
+        )
+        self.finished.emit()
+    def stop(self):
+         self.stop_event.set()
 
-# File Handling Policy
-file_policy_var = tk.StringVar(value=settings.get("file_policy", "skip"))
 
-# Function to select the save directory
-def select_save_directory():
-    directory = filedialog.askdirectory()
-    if directory:
-        save_directory_var.set(directory)
-        settings["save_directory"] = directory
-        save_settings(settings)
-        console_output(f"Save directory set to: {directory}", "info")
+class YouTubeTranscriptDownloader(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("YouTube Transcript Downloader")
+        self.resize(1150, 600)
+        self.setWindowIcon(QIcon(resource_path("icon.ico")))
+        self.stop_download = False
+
+        # Load settings or defaults
+        self.settings = load_settings()
+        self.output_format = self.settings.get("output_format", "TXT")
+        self.language = self.settings.get("language", "en")
+        self.file_policy = self.settings.get("file_policy", "Skip")
+        self.current_theme = self.settings.get("current_theme", "default")
 
 
-# Function to update recent downloads list
-def update_recent_downloads(title, url, file_path):
-    # Avoid duplicates
-    for item in recent_downloads:
-        if item["file_path"] == file_path:
-            return  # Do nothing if the file already exists in the recent list
+        # Initialize UI components
+        self.init_ui()
+
+        # Apply initial theme
+        self.apply_theme()
+
+    def init_ui(self):
+        """Initialize the UI components and layout."""
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout(central_widget)
     
-    display_title = f"{title} ({os.path.splitext(file_path)[1][1:].upper()})"
-    max_length = 50
-    if len(display_title) > max_length:
-        display_title = display_title[:max_length - 3] + '...'
+        # Input Section
+        self.url_input = QLineEdit()
+        self.paste_button = QPushButton("Paste")
+        self.download_button = QPushButton("Download")
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setEnabled(False)
 
-    recent_listbox.insert(tk.END, display_title)
-    recent_downloads.append({"title": title, "url": url, "path": file_path})
-    save_recent_downloads(recent_downloads)
+        input_layout = QHBoxLayout()
+        input_layout.addWidget(QLabel("YouTube URL:"))
+        input_layout.addWidget(self.url_input)
+        input_layout.addWidget(self.paste_button)
+        input_layout.addWidget(self.download_button)
+        input_layout.addWidget(self.cancel_button)
 
+        # Format Selection Section
+        self.output_format_dropdown = QComboBox()
+        self.output_format_dropdown.addItems(["TXT", "JSON", "SRT", "VTT"])
+        self.language_dropdown = QComboBox()
+        self.language_dropdown.addItems(["en", "de", "fr", "es", "it", "pt", "nl", "ru", "zh", "ja"])
+        self.file_policy_dropdown = QComboBox()
+        self.file_policy_dropdown.addItems(["Skip", "Overwrite", "Append Number"])
 
-# Function to clear recent downloads
-def clear_recent_downloads():
-    global recent_downloads
-    recent_downloads = []
-    save_recent_downloads(recent_downloads)
-    recent_listbox.delete(0, tk.END)
-    console_output("Recent downloads cleared.", "info")
-# Save pane position
-def save_pane_position(event):
-    settings["pane_position"] = pane_window.sash_coord(0)[0]
-    save_settings(settings)
+        # Add theme dropdown
+        self.theme_dropdown = QComboBox()
+        self.theme_dropdown.setPlaceholderText("Select Theme")
+        self.populate_theme_dropdown()
+        self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
 
-# Function to clear the console output
-def clear_console():
-    console_text.configure(state='normal')
-    console_text.delete('1.0', tk.END)
-    console_text.configure(state='disabled')
-    update_clear_console_button()
+        format_layout = QHBoxLayout()
+        format_layout.addWidget(QLabel("Select Output Format:"))
+        format_layout.addWidget(self.output_format_dropdown)
+        format_layout.addWidget(QLabel("Select Language:"))
+        format_layout.addWidget(self.language_dropdown)
+        format_layout.addWidget(QLabel("If File Exists:"))
+        format_layout.addWidget(self.file_policy_dropdown)
+        format_layout.addWidget(QLabel("Change Theme:"))  # Add label for theme
+        format_layout.addWidget(self.theme_dropdown)  # Add theme dropdown
+        # Save Directory Section
+        self.select_dir_button = QPushButton("Select Save Directory")
 
-# Function to handle recent item double-click
-def on_recent_item_double_click(event):
-    selection = recent_listbox.curselection()
-    if selection:
-        index = selection[0]
-        file_path = recent_downloads[index].get('file_path', '')
-        if file_path and os.path.exists(file_path):
-            try:
-                if sys.platform.startswith('darwin'):
-                    subprocess.call(('open', file_path))
-                elif os.name == 'nt':
-                    os.startfile(file_path)
-                elif os.name == 'posix':
-                    subprocess.call(('xdg-open', file_path))
-                console_output(f"Opened file: {file_path}", "info")
-            except Exception as e:
-                console_output(f"Failed to open file: {e}", "error")
+        self.open_dir_button = QPushButton("Open Save Directory")
+        self.clear_console_button = QPushButton("Clear Console")
+
+        directory_layout = QHBoxLayout()
+        directory_layout.addWidget(self.select_dir_button)
+        directory_layout.addWidget(self.open_dir_button)
+        directory_layout.addWidget(self.clear_console_button)
+
+        # Recent Downloads and Console
+        self.recent_list = QListWidget()
+        self.console_output = QTextEdit()
+        self.recent_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.recent_list.itemClicked.connect(self.load_url_from_recent)
+        self.recent_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.recent_list.customContextMenuRequested.connect(self.open_menu)
+
+        self.console_output.setReadOnly(True)
+        self.console_output.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(self.recent_list)
+        splitter.addWidget(self.console_output)
+        splitter.setSizes([self.settings.get("pane_position", 200), 600])
+
+        main_layout.addLayout(input_layout)
+        main_layout.addLayout(format_layout)
+        main_layout.addLayout(directory_layout)
+        main_layout.addWidget(splitter)
+
+        # Progress Bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setAlignment(Qt.AlignCenter)
+        self.progress_bar.setValue(0)
+        main_layout.addWidget(self.progress_bar)
+
+        # Status Bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+
+        # Connect Buttons
+        self.paste_button.clicked.connect(self.paste_from_clipboard)
+        self.download_button.clicked.connect(self.start_download)
+        self.clear_console_button.clicked.connect(self.clear_console)
+        self.select_dir_button.clicked.connect(self.select_save_directory)
+        self.open_dir_button.clicked.connect(self.open_save_directory)
+        self.cancel_button.clicked.connect(self.cancel_download)
+
+        # Populate Dropdown Defaults
+        self.output_format_dropdown.setCurrentText(self.output_format)
+        self.language_dropdown.setCurrentText(self.language)
+        self.file_policy_dropdown.setCurrentText(self.file_policy)
+        self.output_format_dropdown.currentIndexChanged.connect(self.save_output_format)
+        self.language_dropdown.currentIndexChanged.connect(self.save_language)
+        self.file_policy_dropdown.currentIndexChanged.connect(self.save_file_policy)
+
+        # Load Recent Downloads
+        recent_downloads = load_recent_downloads()
+        for item in recent_downloads:
+            lang_tag = f"[{item.get('language', 'N/A').upper()}]"
+            display_title = f"{item['title']} ({lang_tag}, {os.path.splitext(item['file_path'])[1][1:].upper()})"
+            self.recent_list.addItem(display_title)
+
+    def get_available_themes(self):
+        """Return a list of available themes."""
+        themes_dir = resource_path("themes")
+        if not os.path.exists(themes_dir):
+            os.makedirs(themes_dir)
+        return [f[:-4] for f in os.listdir(themes_dir) if f.endswith(".css")]
+
+    def populate_theme_dropdown(self):
+        """Populate the theme dropdown with available themes."""
+        self.theme_dropdown.clear()
+        themes = self.get_available_themes()
+        if not themes:
+            self.theme_dropdown.addItem("Default Theme")
+        for theme in themes:
+            formatted_name = " ".join(word.capitalize() for word in theme.replace("_", " ").split())
+            self.theme_dropdown.addItem(formatted_name, theme)
+
+    def change_theme(self, index):
+        """Handle theme changes from the dropdown."""
+        if index < 0:
+            return
+        theme_key = self.theme_dropdown.itemData(index)
+        self.settings["current_theme"] = theme_key
+        save_settings(self.settings)
+        self.apply_theme()
+
+    def apply_theme(self):
+        """Apply the selected theme or fallback if unavailable."""
+        themes = self.get_available_themes()
+        current_theme = self.settings.get("current_theme", "default")
+
+        if current_theme in themes:
+            self.load_theme_from_file(current_theme)
         else:
-            console_output("File does not exist.", "error")
+            self.apply_fallback_theme()
+            if not os.path.exists(resource_path("themes")):
+                self.apply_fallback_theme()
+                return
 
-# Function to output messages to the console and update status bar with color
-def console_output(message, msg_type="info"):
-    console_text.configure(state='normal')
-    if msg_type == "error":
-        console_text.insert(tk.END, message + '\n', 'error')
-    elif msg_type == "success":
-        console_text.insert(tk.END, message + '\n', 'success')
-    else:
-        console_text.insert(tk.END, message + '\n', 'info')
-    console_text.configure(state='disabled')
-    console_text.see(tk.END)
-    # Update the status bar with the latest message
-    status_var.set(message)
-    update_clear_console_button()
+        self.populate_theme_dropdown()
 
-    # Icon handling code
-    try:
-        root.iconbitmap(resource_path("icon.ico"))
-    except Exception as e:
-        console_output(f"Failed to load icon: {e}")
+    def load_theme_from_file(self, theme_name):
+        """Load and apply a theme from a file."""
+        theme_file = resource_path(f"themes/{theme_name}.css")
+        if os.path.exists(theme_file):
+            try:
+                with open(theme_file, 'r', encoding='utf-8') as f:
+                    self.setStyleSheet(f.read())
+                self.console_output.append(f"Applied theme: {theme_name}")
+            except Exception as e:
+                self.console_output.append(f"Failed to load theme '{theme_name}': {e}")
+        else:
+            self.apply_fallback_theme()
 
-
-# Function to update the state of the "Clear Console" button
-def update_clear_console_button():
-    content = console_text.get('1.0', tk.END).strip()
-    if content:
-        clear_console_button.config(state='normal')
-    else:
-        clear_console_button.config(state='disabled')
-
-# Configure tags for colored text in the console
-def configure_console_tags():
-    console_text.tag_config('error', foreground='red')
-    console_text.tag_config('success', foreground='green')
-    console_text.tag_config('info', foreground='black')
-
-# Add a global stop event
-stop_event = threading.Event()
-
-# Function to handle download button click
-def on_download_button_click():
-    url = url_entry.get().strip()
-    if not url:
-        console_output("Please enter a YouTube video or playlist URL.", "error")
-        return
-
-    selected_format = output_format_var.get()
-    if not selected_format:
-        console_output("Please select an output format.", "error")
-        return
-
-    # Save the current settings
-    settings["output_format"] = output_format_var.get()
-    settings["language"] = language_var.get()
-    settings["file_policy"] = file_policy_var.get()
-    save_settings(settings)
-
-    # Start download
-    download_button.config(state='disabled')
-    cancel_button.config(state='normal')
-    progress_bar.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
-    stop_event.clear()
-    threading.Thread(target=start_processing, args=(url,)).start()
+    def apply_fallback_theme(self):
+        """Apply a fallback theme."""
+        self.setStyleSheet("""
+            QMainWindow { background-color: #EDEDED; color: #222222; }
+            QPushButton { background-color: #D6D6D6; color: #222222; border: 1px solid #AAAAAA; }
+        """)
+        self.console_output.append("Applied fallback theme.")
 
 
-# Function to handle cancel button click
-def on_cancel_button_click():
-    stop_event.set()
-    console_output("Cancelling download...", "info")
-    cancel_button.config(state='disabled')
+    
+    def save_pane_position(self, pos, index):
+        self.settings["pane_position"] = pos
+        save_settings(self.settings)
 
-# Function to start processing videos
-def start_processing(url):
-    selected_format = output_format_var.get()
-    output_formats_selected = [selected_format.lower()]
-    language = language_var.get()
-    save_directory = save_directory_var.get()
-    file_policy = file_policy_var.get()
+    def paste_from_clipboard(self):
+        try:
+            paste_from_clipboard(self.url_input)
+        except Exception as e:
+            display_message(self.console_output, f"Error: {e}", "error")
 
-    # Save current settings
-    settings["output_format"] = selected_format
-    settings["language"] = language
-    settings["file_policy"] = file_policy
-    save_settings(settings)
+    def load_url_from_recent(self, item):
+        recent_downloads = load_recent_downloads()
+        index = self.recent_list.row(item)
+        if 0 <= index < len(recent_downloads):
+            self.url_input.setText(recent_downloads[index]["url"])
+    
+    def open_menu(self, position):
+        menu = QMenu(self)
+        open_action = menu.addAction("Open file")
+        action = menu.exec(self.recent_list.viewport().mapToGlobal(position)) # changed from exec_ to exec
+        if action == open_action:
+            self.open_file_from_recent_list(position)
+            
+    def open_file_from_recent_list(self,position):
+        item = self.recent_list.itemAt(position)
+        if item:
+             recent_downloads = load_recent_downloads()
+             index = self.recent_list.row(item)
+             if 0 <= index < len(recent_downloads):
+                file_path = recent_downloads[index].get('file_path', '')
+                if file_path and os.path.exists(file_path):
+                    try:
+                        if sys.platform.startswith('darwin'):
+                            subprocess.call(('open', file_path))
+                        elif os.name == 'nt':
+                            os.startfile(file_path)
+                        elif os.name == 'posix':
+                           subprocess.call(('xdg-open', file_path))
+                        display_message(self.console_output, f"Opened file: {file_path}", "info")
+                    except Exception as e:
+                        display_message(self.console_output, f"Failed to open file: {e}", "error")
+                else:
+                    display_message(self.console_output, "File does not exist.", "error")
 
-    # Run the async process_videos function
-    asyncio.run(process_videos(
-        url,
-        output_formats_selected,
-        language,
-        save_directory,
-        console_output_wrapper,
-        update_recent_downloads_wrapper,
-        stop_event,
-        file_policy,
-        progress_bar_wrapper
-    ))
+    def clear_console(self):
+        self.console_output.clear()
 
-    download_button.config(state='normal')
-    cancel_button.config(state='disabled')
-    progress_bar.pack_forget()
+    def select_save_directory(self):
+        directory = QFileDialog.getExistingDirectory(self, "Select Save Directory")
+        if directory:
+            self.settings["save_directory"] = directory
+            save_settings(self.settings)
+            display_message(self.console_output, f"Save directory selected: {directory}")
 
-# Wrapper for console_output to ensure thread-safe GUI updates
-def console_output_wrapper(message, msg_type="info"):
-    root.after(0, lambda: console_output(message, msg_type))
-def console_output(message, tag="info"):
-    console_text.config(state=tk.NORMAL)
-    console_text.insert(tk.END, message + "\n", tag)
-    console_text.config(state=tk.DISABLED)
-    console_text.see(tk.END)
+    def open_save_directory(self):
+        os.startfile(self.settings.get("save_directory", os.getcwd()))
 
+    def update_recent_downloads(self, title, url, file_path):
+        format_type = os.path.splitext(file_path)[1][1:].upper()  # Extract file format
+        language = self.language_dropdown.currentText()  # Get selected language
 
-# Wrapper for update_recent_downloads to include file_path
-def update_recent_downloads_wrapper(title, url, file_path):
-    root.after(0, lambda: update_recent_downloads(title, url, file_path))
+        # Load existing recent downloads
+        recent_downloads = load_recent_downloads()
 
-# Wrapper for progress_bar to update its value
-def progress_bar_wrapper(current, total):
-    if total > 0:
-        progress = (current / total) * 100
-        progress_bar['value'] = progress
-        progress_bar.update_idletasks()
-def open_save_directory():
-    save_dir = save_directory_var.get()
-    if os.path.exists(save_dir):
-        if sys.platform.startswith('win'):
-            os.startfile(save_dir)
-        elif sys.platform.startswith('darwin'):
-            subprocess.call(['open', save_dir])
-        else:  # Linux/Unix
-            subprocess.call(['xdg-open', save_dir])
-    else:
-        console_output("Save directory does not exist.", "error")
+        # Remove duplicates (same title, URL, format, and language)
+        recent_downloads = [
+            item for item in recent_downloads
+            if not (item['title'] == title and item['url'] == url and item['file_path'] == file_path and item.get('language') == language)
+        ]
 
-# =======================
-# Layout Configuration
-# =======================
+        # Add the new entry to the top
+        recent_downloads.insert(0, {
+            'title': title,
+            'url': url,
+            'file_path': file_path,
+            'language': language
+        })
 
-# Configure root window grid for clean layout
-root.grid_rowconfigure(2, weight=1)  # Allow PanedWindow to expand vertically
-root.grid_columnconfigure(0, weight=1)  # Allow frames to expand horizontally
+        # Save back to the JSON file
+        save_recent_downloads(recent_downloads)
 
-# =======================
-# Top: Input Controls (Green Section)
-# =======================
-input_frame = tk.Frame(root, relief=tk.RIDGE, bd=2)
-input_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
-
-# URL Entry
-url_label = tk.Label(input_frame, text="YouTube URL:")
-url_label.grid(row=0, column=0, padx=5, pady=5, sticky='e')
-url_entry = tk.Entry(input_frame, width=50)
-url_entry.grid(row=0, column=1, padx=5, pady=5)
-
-# Paste Button
-paste_button = tk.Button(input_frame, text="Paste", command=lambda: paste_from_clipboard(root, url_entry, console_output))
-paste_button.grid(row=0, column=2, padx=5)
-
-# Buttons
-download_button = tk.Button(input_frame, text="Download Transcript", command=on_download_button_click)
-download_button.grid(row=0, column=3, padx=5)
-
-cancel_button = tk.Button(input_frame, text="Cancel", command=on_cancel_button_click, state='disabled')
-cancel_button.grid(row=0, column=4, padx=5)
-
-theme_button = tk.Button(input_frame, text="Toggle Dark Mode", command=toggle_theme)
-theme_button.grid(row=0, column=5, padx=(10, 5))
-
-# =======================
-# Middle: Format Controls (Green Section)
-# =======================
-format_frame = tk.Frame(root)
-format_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 5))
-
-# Format Label
-format_label = tk.Label(format_frame, text="Select Output Format:")
-format_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
-
-# Format Dropdown
-output_format_dropdown = ttk.Combobox(format_frame, textvariable=output_format_var, width=10, state='readonly')
-output_format_dropdown['values'] = output_formats
-output_format_dropdown.grid(row=0, column=1, padx=5, pady=5, sticky='w')
-
-# Language Label
-language_label = tk.Label(format_frame, text="Select Language:")
-language_label.grid(row=0, column=2, padx=(20, 0))
-
-# Language Dropdown
-language_dropdown = ttk.Combobox(format_frame, textvariable=language_var, width=5, state='readonly')
-language_dropdown['values'] = ('en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'ru', 'zh', 'ja')  # Add more as needed
-language_dropdown.grid(row=0, column=3)
-
-# Save Directory Buttons
-save_dir_button = tk.Button(format_frame, text="Select Save Directory", command=select_save_directory)
-save_dir_button.grid(row=0, column=4, padx=5)
-
-open_dir_button = tk.Button(format_frame, text="Open Save Directory", command=open_save_directory)
-open_dir_button.grid(row=0, column=5, padx=5)
-
-# Clear Console Button
-clear_console_button = tk.Button(format_frame, text="Clear Console", command=clear_console)
-clear_console_button.grid(row=0, column=6, padx=5)
-
-# File Handling Label
-file_handling_label = tk.Label(format_frame, text="If File Exists:")
-file_handling_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
-
-# File Handling Dropdown
-file_handling_dropdown = ttk.Combobox(format_frame, textvariable=file_policy_var, width=15, state='readonly')
-file_handling_dropdown['values'] = ('Skip', 'Overwrite', 'Append Number')
-file_handling_dropdown.grid(row=1, column=1, columnspan=2, sticky='w', pady=(5, 0))
+        # Update the UI: Clear and reload
+        self.recent_list.clear()
+        for item in recent_downloads:
+            lang_tag = f"[{item.get('language', 'N/A').upper()}]"  # Show language
+            display_title = f"{item['title']} ({lang_tag}, {os.path.splitext(item['file_path'])[1][1:].upper()})"
+            self.recent_list.addItem(display_title)
 
 
-# =======================
-# Center: PanedWindow (Recent Downloads + Console)
-# =======================
-pane_window = tk.PanedWindow(root, orient=tk.HORIZONTAL, sashrelief=tk.RAISED)
-pane_window.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
 
-# Left: Recent Downloads
-recent_frame = tk.Frame(pane_window, width=200, relief=tk.RIDGE, bd=2)
-recent_label = tk.Label(recent_frame, text="Recent Downloads")
-recent_label.pack(side=tk.TOP, pady=5)
+    def toggle_theme(self):
+        self.dark_mode = not self.dark_mode # <-- Updated the logic
+        self.settings["dark_mode"] = self.dark_mode
+        self.apply_theme() # Applying the theme on toggle
+        save_settings(self.settings)
 
-listbox_frame = tk.Frame(recent_frame)
-listbox_frame.pack(fill=tk.BOTH, expand=True)
+    
+    
 
-recent_listbox = tk.Listbox(listbox_frame, width=30, height=15)
-recent_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    def change_theme(self, index):
+        if index < 0:  # No valid selection
+            return
+        
+        theme_key = self.theme_dropdown.itemData(index)
+        if theme_key == "Default Theme":
+            self.apply_fallback_theme("default")
+            self.settings["current_theme"] = "default"
+        else:
+            self.settings["current_theme"] = theme_key
+            self.load_theme_from_file(theme_key)
 
-recent_scrollbar = tk.Scrollbar(listbox_frame, command=recent_listbox.yview)
-recent_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-recent_listbox.config(yscrollcommand=recent_scrollbar.set)
+        save_settings(self.settings)
+        display_message(self.console_output, f"Applied theme: {self.theme_dropdown.currentText()}")
 
-clear_button = tk.Button(recent_frame, text="Clear", command=clear_recent_downloads)
-clear_button.pack(pady=5)
+    def save_output_format(self):
+        self.settings["output_format"] = self.output_format_dropdown.currentText()
+        save_settings(self.settings)
+    
+    def save_language(self):
+        self.settings["language"] = self.language_dropdown.currentText()
+        save_settings(self.settings)
+        
+    def save_file_policy(self):
+        self.settings["file_policy"] = self.file_policy_dropdown.currentText()
+        save_settings(self.settings)
 
-pane_window.add(recent_frame)
 
-# Right: Console Output
-console_frame = tk.Frame(pane_window, relief=tk.RIDGE, bd=2)
-console_text = tk.Text(console_frame, state='disabled', height=15)
-console_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    def start_download(self):
+        video_url = self.url_input.text()
+        if not video_url:
+            display_message(self.console_output, "YouTube URL cannot be empty.", "error")
+            return
+        display_message(self.console_output, f"Starting download for: {video_url}")
+        self.progress_bar.setValue(0)
+        self.cancel_button.setEnabled(True)
 
-console_scrollbar = tk.Scrollbar(console_frame, command=console_text.yview)
-console_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-console_text.config(yscrollcommand=console_scrollbar.set)
+        # Retrieve settings
+        output_format = self.output_format_dropdown.currentText().lower()
+        language = self.language_dropdown.currentText().lower()
+        file_policy = self.file_policy_dropdown.currentText().lower()
 
-pane_window.add(console_frame)
+        save_directory = self.settings.get("save_directory", os.getcwd())
+        os.makedirs(save_directory, exist_ok=True)
+        
+        self.download_worker = DownloadWorker(
+            video_url,
+            [output_format],
+            language,
+            save_directory,
+            self.console_output,
+            self.update_recent_downloads,
+            file_policy
+        )
+        self.download_worker.progress_updated.connect(self.update_progress)
+        self.download_worker.finished.connect(self.download_finished)
+        self.download_worker.start()
 
-# =======================
-# Bottom: Progress Bar
-# =======================
-progress_bar = ttk.Progressbar(root, orient="horizontal", mode="determinate", length=400)
-progress_bar.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+    def update_progress(self, current, total):
+        update_progress_bar(self.progress_bar, current, total)
 
-# =======================
-# Status Bar
-# =======================
-status_var = tk.StringVar()
-status_bar = tk.Label(root, textvariable=status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
-status_bar.grid(row=4, column=0, sticky="ew")
+    def cancel_download(self):
+        self.download_worker.stop()
+        self.cancel_button.setEnabled(False)
+        display_message(self.console_output, "Download cancelled by user.", "info")
 
-# Populate the recent downloads list initially
-max_length = 100  # Change this value if needed
-for item in recent_downloads:
-    display_title = item['title']
-    if len(display_title) > max_length:
-        display_title = display_title[:max_length - 3] + '...'
-    recent_listbox.insert(tk.END, display_title)
+    def download_finished(self):
+        self.progress_bar.setValue(100)
+        self.cancel_button.setEnabled(False)
+        #display_message(self.console_output, "Download finished", "info") # Removed from here
 
-# Apply theme based on saved setting
-if settings.get("dark_mode", False):
-    toggle_theme()
-
-# Start the Tkinter event loop
-root.mainloop()
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = YouTubeTranscriptDownloader()
+    window.show()
+    sys.exit(app.exec())
