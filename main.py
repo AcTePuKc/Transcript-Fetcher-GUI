@@ -1,34 +1,26 @@
+# Updated main.py
 import os
 import sys
 import asyncio
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QSizePolicy,
-    QLabel, QLineEdit, QPushButton, QComboBox, QListWidget, QTextEdit, QProgressBar, QFileDialog, QStatusBar, QSplitter, QMenu
+    QLabel, QLineEdit, QPushButton, QComboBox, QListWidget, QTextEdit, QProgressBar, QFileDialog, QStatusBar, QSplitter, QTabWidget, QDialog, QMenu, 
 )
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QIcon
 from threading import Event
 from utils import (
-    load_settings, 
-    save_settings, 
-    paste_from_clipboard, 
-    load_recent_downloads, 
-    save_recent_downloads, 
-    resource_path, 
-    display_message,
-    update_progress_bar
-    )
+    load_settings, save_settings, paste_from_clipboard, load_recent_downloads,
+    save_recent_downloads, resource_path, display_message, update_progress_bar
+)
 from fetcher import process_videos
 import subprocess
 
 
-# Ensure script directory is in Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-# Event handler for download progress
 class DownloadWorker(QThread):
     progress_updated = Signal(int, int)
     finished = Signal()
+
     def __init__(self, url, output_formats, language, save_directory, console_output, update_recent_downloads, file_policy):
         super().__init__()
         self.url = url
@@ -47,16 +39,19 @@ class DownloadWorker(QThread):
                 self.output_formats,
                 self.language,
                 self.save_directory,
-                lambda msg, level: display_message(self.console_output, msg, level),
+                lambda msg, level: display_message(
+                    self.console_output, msg, level),
                 self.update_recent_downloads,
                 self.stop_event,
                 self.file_policy,
-                lambda current, total: self.progress_updated.emit(current, total)
+                lambda current, total: self.progress_updated.emit(
+                    current, total)
             )
         )
         self.finished.emit()
+
     def stop(self):
-         self.stop_event.set()
+        self.stop_event.set()
 
 
 class YouTubeTranscriptDownloader(QMainWindow):
@@ -65,15 +60,15 @@ class YouTubeTranscriptDownloader(QMainWindow):
         self.setWindowTitle("YouTube Transcript Downloader")
         self.resize(1150, 600)
         self.setWindowIcon(QIcon(resource_path("icon.ico")))
-        self.stop_download = False
 
         # Load settings or defaults
         self.settings = load_settings()
+        self.save_directory = self.settings.get(
+            "save_directory", os.path.expanduser("~/YT-Transcribe-Downloads"))
         self.output_format = self.settings.get("output_format", "TXT")
         self.language = self.settings.get("language", "en")
         self.file_policy = self.settings.get("file_policy", "Skip")
-        self.current_theme = self.settings.get("current_theme", "default")
-
+        self.current_theme = self.settings.get("current_theme", "light")
 
         # Initialize UI components
         self.init_ui()
@@ -86,7 +81,7 @@ class YouTubeTranscriptDownloader(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-    
+
         # Input Section
         self.url_input = QLineEdit()
         self.paste_button = QPushButton("Paste")
@@ -101,60 +96,32 @@ class YouTubeTranscriptDownloader(QMainWindow):
         input_layout.addWidget(self.download_button)
         input_layout.addWidget(self.cancel_button)
 
-        # Format Selection Section
-        self.output_format_dropdown = QComboBox()
-        self.output_format_dropdown.addItems(["TXT", "JSON", "SRT", "VTT"])
-        self.language_dropdown = QComboBox()
-        self.language_dropdown.addItems(["en", "de", "fr", "es", "it", "pt", "nl", "ru", "zh", "ja"])
-        self.file_policy_dropdown = QComboBox()
-        self.file_policy_dropdown.addItems(["Skip", "Overwrite", "Append Number"])
-
-        # Add theme dropdown
-        self.theme_dropdown = QComboBox()
-        self.theme_dropdown.setPlaceholderText("Select Theme")
-        self.populate_theme_dropdown()
-        self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
-
-        format_layout = QHBoxLayout()
-        format_layout.addWidget(QLabel("Select Output Format:"))
-        format_layout.addWidget(self.output_format_dropdown)
-        format_layout.addWidget(QLabel("Select Language:"))
-        format_layout.addWidget(self.language_dropdown)
-        format_layout.addWidget(QLabel("If File Exists:"))
-        format_layout.addWidget(self.file_policy_dropdown)
-        format_layout.addWidget(QLabel("Change Theme:"))  # Add label for theme
-        format_layout.addWidget(self.theme_dropdown)  # Add theme dropdown
-        # Save Directory Section
-        self.select_dir_button = QPushButton("Select Save Directory")
-
-        self.open_dir_button = QPushButton("Open Save Directory")
-        self.clear_console_button = QPushButton("Clear Console")
-
-        directory_layout = QHBoxLayout()
-        directory_layout.addWidget(self.select_dir_button)
-        directory_layout.addWidget(self.open_dir_button)
-        directory_layout.addWidget(self.clear_console_button)
+        # Properties Button
+        self.properties_button = QPushButton("Properties")
+        self.properties_button.clicked.connect(self.open_properties_tab)
 
         # Recent Downloads and Console
-        self.recent_list = QListWidget()
-        self.console_output = QTextEdit()
+        self.recent_list = QListWidget()  # Initialize recent_list here
         self.recent_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.recent_list.itemClicked.connect(self.load_url_from_recent)
-        self.recent_list.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.recent_list.customContextMenuRequested.connect(self.open_menu)
-
+        self.console_output = QTextEdit()
         self.console_output.setReadOnly(True)
-        self.console_output.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        splitter = QSplitter(Qt.Horizontal)
-        splitter.addWidget(self.recent_list)
-        splitter.addWidget(self.console_output)
-        splitter.setSizes([self.settings.get("pane_position", 200), 600])
+        # Splitter for recent_list and console_output
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.addWidget(self.recent_list)
+        self.splitter.addWidget(self.console_output)
+        
+        # Restore splitter state if saved
+        splitter_state = self.settings.get("splitter_state")
+        if splitter_state:
+            self.splitter.restoreState(bytes.fromhex(splitter_state))
+        else:
+            self.splitter.setSizes([200, 600])  # Default sizes
 
         main_layout.addLayout(input_layout)
-        main_layout.addLayout(format_layout)
-        main_layout.addLayout(directory_layout)
-        main_layout.addWidget(splitter)
+        main_layout.addWidget(self.properties_button)
+        main_layout.addWidget(self.splitter)
 
         # Progress Bar
         self.progress_bar = QProgressBar()
@@ -169,243 +136,297 @@ class YouTubeTranscriptDownloader(QMainWindow):
         # Connect Buttons
         self.paste_button.clicked.connect(self.paste_from_clipboard)
         self.download_button.clicked.connect(self.start_download)
-        self.clear_console_button.clicked.connect(self.clear_console)
-        self.select_dir_button.clicked.connect(self.select_save_directory)
-        self.open_dir_button.clicked.connect(self.open_save_directory)
         self.cancel_button.clicked.connect(self.cancel_download)
 
-        # Populate Dropdown Defaults
-        self.output_format_dropdown.setCurrentText(self.output_format)
-        self.language_dropdown.setCurrentText(self.language)
-        self.file_policy_dropdown.setCurrentText(self.file_policy)
-        self.output_format_dropdown.currentIndexChanged.connect(self.save_output_format)
-        self.language_dropdown.currentIndexChanged.connect(self.save_language)
-        self.file_policy_dropdown.currentIndexChanged.connect(self.save_file_policy)
+        # Populate the recent downloads list
+        self.populate_recent_downloads()
 
-        # Load Recent Downloads
+    def open_recent_menu(self, position):
+        """Open the context menu for the recent downloads list."""
+        menu = QMenu(self)
+
+        open_action = menu.addAction("Open File")
+        remove_action = menu.addAction("Remove from List")
+
+        action = menu.exec(self.recent_list.viewport().mapToGlobal(position))
+        selected_item = self.recent_list.currentItem()
+
+        if selected_item:
+            if action == open_action:
+                self.open_file_from_recent(selected_item)
+            elif action == remove_action:
+                self.remove_item_from_recent(selected_item)
+    def open_file_from_recent(self, item):
+        """Open the file associated with a recent download."""
+        recent_downloads = load_recent_downloads()  # Load recent downloads from JSON
+        index = self.recent_list.row(item)  # Get the selected item's index
+
+        if 0 <= index < len(recent_downloads):
+            file_path = recent_downloads[index].get("file_path")
+            if file_path and os.path.exists(file_path):  # Ensure the file exists
+                try:
+                    # Open the file using the default application
+                    if sys.platform == "win32":
+                        os.startfile(file_path)
+                    elif sys.platform == "darwin":
+                        subprocess.run(["open", file_path])
+                    else:
+                        subprocess.run(["xdg-open", file_path])
+                except Exception as e:
+                    display_message(self.console_output, f"Error opening file: {e}", "error")
+            else:
+                display_message(self.console_output, "File not found.", "error")
+
+    def remove_item_from_recent(self, item):
+        """Remove a recent download from the list."""
         recent_downloads = load_recent_downloads()
-        for item in recent_downloads:
-            lang_tag = f"[{item.get('language', 'N/A').upper()}]"
-            display_title = f"{item['title']} ({lang_tag}, {os.path.splitext(item['file_path'])[1][1:].upper()})"
-            self.recent_list.addItem(display_title)
+        index = self.recent_list.row(item)
+        if 0 <= index < len(recent_downloads):
+            recent_downloads.pop(index)
+            save_recent_downloads(recent_downloads)
+            self.recent_list.takeItem(index)
 
-    def get_available_themes(self):
-        """Return a list of available themes."""
-        themes_dir = resource_path("themes")
-        if not os.path.exists(themes_dir):
-            os.makedirs(themes_dir)
-        return [f[:-4] for f in os.listdir(themes_dir) if f.endswith(".css")]
+    def populate_recent_downloads(self):
+        """Populate the recent downloads list from saved data."""
+        recent_downloads = load_recent_downloads()  # Load from JSON file
+        self.recent_list.clear()  # Clear the UI list
+        for entry in recent_downloads:
+            title = entry.get("title", "Untitled")
+            url = entry.get("url", "Unknown URL")
+            output_format = entry.get("format", "TXT")  # Default to TXT if missing
+            language = entry.get("language", "EN")      # Default to EN if missing
+            display_text = f"{title} [{output_format.upper()} | {language.upper()}]"
+            self.recent_list.addItem(display_text)
+
+    
+    def open_properties_tab(self):
+        """Open the Properties dialog."""
+        self.properties_dialog = QDialog(
+            self)  # Create a new dialog every time
+        self.properties_dialog.setWindowTitle("Properties")
+        layout = QVBoxLayout(self.properties_dialog)
+
+        self.tab_widget = QTabWidget()
+        layout.addWidget(self.tab_widget)
+
+        # Add tabs
+        general_tab = QWidget()
+        self.init_general_tab(general_tab)
+        self.tab_widget.addTab(general_tab, "General")
+
+        themes_tab = QWidget()
+        self.init_themes_tab(themes_tab)  # Refresh the dropdown each time
+        self.tab_widget.addTab(themes_tab, "Themes")
+
+        directories_tab = QWidget()
+        self.init_directories_tab(directories_tab)
+        self.tab_widget.addTab(directories_tab, "Directories")
+
+        # Apply the stylesheet to the dialog explicitly
+        theme = self.settings.get("current_theme", "light")
+        theme_file = resource_path(f"themes/{theme}.css")
+        if os.path.exists(theme_file):
+            with open(theme_file, "r", encoding="utf-8") as f:
+                self.properties_dialog.setStyleSheet(f.read())
+
+        self.properties_dialog.exec()
+
+    def init_general_tab(self, tab):
+        """Initialize the General tab."""
+        layout = QVBoxLayout()
+        tab.setLayout(layout)
+
+        # Output Format
+        layout.addWidget(QLabel("Select Output Format:"))
+        self.output_format_dropdown = QComboBox()
+        self.output_format_dropdown.addItems(["TXT", "JSON", "SRT", "VTT"])
+        layout.addWidget(self.output_format_dropdown)
+
+        # Language Selection
+        layout.addWidget(QLabel("Select Language:"))
+        self.language_dropdown = QComboBox()
+        self.language_dropdown.addItems(["en", "de", "fr", "es", "it"])
+        layout.addWidget(self.language_dropdown)
+
+        # File Policy
+        layout.addWidget(QLabel("File Policy:"))
+        self.file_policy_dropdown = QComboBox()
+        self.file_policy_dropdown.addItems(
+            ["Skip", "Replace", "Append number"])
+        self.file_policy_dropdown.setCurrentText(self.file_policy)
+        layout.addWidget(self.file_policy_dropdown)
+
+        # Save Button
+        save_button = QPushButton("Save Settings")
+        save_button.clicked.connect(self.save_general_settings)
+        layout.addWidget(save_button)
+
+    def init_themes_tab(self, tab):
+        """Initialize the Themes tab."""
+        layout = QVBoxLayout()
+        tab.setLayout(layout)
+
+        # Theme Dropdown
+        layout.addWidget(QLabel("Select Theme:"))
+        self.theme_dropdown = QComboBox()
+        self.populate_theme_dropdown()
+        current_theme = self.settings.get("current_theme", "light")
+        # Sync dropdown with saved theme
+        self.theme_dropdown.setCurrentText(current_theme)
+        layout.addWidget(self.theme_dropdown)
+
+        # Apply Theme Button
+        button_layout = QHBoxLayout()  # Horizontal layout for buttons
+        apply_button = QPushButton("Apply Theme")
+        apply_button.clicked.connect(
+            self.apply_selected_theme)  # Apply theme immediately
+        button_layout.addWidget(apply_button)
+
+        # Reset Theme Button
+        reset_button = QPushButton("Reset Theme")
+        reset_button.clicked.connect(self.reset_theme)
+        button_layout.addWidget(reset_button)
+
+        layout.addLayout(button_layout)
+
+    def save_splitter_state(self):
+        """Save the current splitter position to settings."""
+        self.settings["splitter_state"] = self.splitter.saveState().data().hex()  # Save as hex string
+        save_settings(self.settings)
+
+    def closeEvent(self, event):
+        """Handle application close events."""
+        self.save_splitter_state()  # Save splitter position
+        save_settings(self.settings)  # Save other settings
+        super().closeEvent(event)
+
+    def init_directories_tab(self, tab):
+        """Initialize the Directories tab."""
+        layout = QVBoxLayout()
+        tab.setLayout(layout)
+
+        layout.addWidget(QLabel("Save Directory:"))
+        self.directory_label = QLabel(self.save_directory)
+        layout.addWidget(self.directory_label)
+
+        select_button = QPushButton("Select Directory")
+        select_button.clicked.connect(self.select_save_directory)
+        layout.addWidget(select_button)
 
     def populate_theme_dropdown(self):
         """Populate the theme dropdown with available themes."""
         self.theme_dropdown.clear()
-        themes = self.get_available_themes()
-        if not themes:
-            self.theme_dropdown.addItem("Default Theme")
-        for theme in themes:
-            formatted_name = " ".join(word.capitalize() for word in theme.replace("_", " ").split())
-            self.theme_dropdown.addItem(formatted_name, theme)
+        themes_dir = resource_path("themes")
+        themes = [f[:-4] for f in os.listdir(themes_dir) if f.endswith(".css")]
+        self.theme_dropdown.addItems(themes)
 
-    def change_theme(self, index):
-        """Handle theme changes from the dropdown."""
-        if index < 0:
-            return
-        theme_key = self.theme_dropdown.itemData(index)
-        self.settings["current_theme"] = theme_key
+    def apply_selected_theme(self):
+        """Save and apply the selected theme immediately."""
+        selected_theme = self.theme_dropdown.currentText()  # Get selected theme
+        self.settings["current_theme"] = selected_theme  # Update settings
+        save_settings(self.settings)  # Save settings to the file
+        self.apply_theme()  # Apply the theme dynamically
+
+        # Update Preferences Tab immediately
+        if hasattr(self, "properties_dialog"):  # Ensure dialog exists
+            theme_file = resource_path(f"themes/{selected_theme}.css")
+            if os.path.exists(theme_file):
+                with open(theme_file, "r", encoding="utf-8") as f:
+                    self.properties_dialog.setStyleSheet(f.read())
+
+        # Status feedback
+        self.status_bar.showMessage(f"Theme applied: {selected_theme}", 3000)
+
+    def reset_theme(self):
+        """Reset the theme to the default."""
+        self.settings["current_theme"] = "light"  # Reset theme to default
         save_settings(self.settings)
         self.apply_theme()
+        # Update Preferences Tab immediately
+        if hasattr(self, "properties_dialog"):  # Ensure dialog exists
+            theme_file = resource_path(f"themes/{self.settings['current_theme']}.css")
+            if os.path.exists(theme_file):
+                with open(theme_file, "r", encoding="utf-8") as f:
+                    self.properties_dialog.setStyleSheet(f.read())
+        self.status_bar.showMessage("Theme reset to default", 3000)
 
     def apply_theme(self):
-        """Apply the selected theme or fallback if unavailable."""
-        themes = self.get_available_themes()
-        current_theme = self.settings.get("current_theme", "default")
-
-        if current_theme in themes:
-            self.load_theme_from_file(current_theme)
-        else:
-            self.apply_fallback_theme()
-            if not os.path.exists(resource_path("themes")):
-                self.apply_fallback_theme()
-                return
-
-        self.populate_theme_dropdown()
-
-    def load_theme_from_file(self, theme_name):
-        """Load and apply a theme from a file."""
-        theme_file = resource_path(f"themes/{theme_name}.css")
+        """Apply the current theme dynamically."""
+        theme = self.settings.get(
+            "current_theme", "light")  # Get the current theme
+        theme_file = resource_path(f"themes/{theme}.css")
         if os.path.exists(theme_file):
-            try:
-                with open(theme_file, 'r', encoding='utf-8') as f:
-                    self.setStyleSheet(f.read())
-                self.console_output.append(f"Applied theme: {theme_name}")
-            except Exception as e:
-                self.console_output.append(f"Failed to load theme '{theme_name}': {e}")
+            with open(theme_file, "r", encoding="utf-8") as f:
+                theme_css = f.read()
+                # Apply theme globally and to the main window
+                self.setStyleSheet("")  # Clear existing styles
+                QApplication.instance().setStyleSheet(
+                    theme_css)  # Global application of stylesheet
+                self.setStyleSheet(theme_css)
         else:
-            self.apply_fallback_theme()
+            display_message(self.console_output, f"Theme file not found: {
+                            theme_file}", "error")
 
-    def apply_fallback_theme(self):
-        """Apply a fallback theme."""
-        self.setStyleSheet("""
-            QMainWindow { background-color: #EDEDED; color: #222222; }
-            QPushButton { background-color: #D6D6D6; color: #222222; border: 1px solid #AAAAAA; }
-        """)
-        self.console_output.append("Applied fallback theme.")
+    def apply_custom_theme(self):
+        """Apply custom colors defined by the user."""
+        bg_color = self.bg_color_input.text() or "#212121"
+        text_color = self.text_color_input.text() or "#FFFFFF"
 
+        custom_css = f"""
+        QMainWindow {{
+            background-color: {bg_color};
+            color: {text_color};
+        }}
+        QPushButton {{
+            background-color: #424242;
+            color: {text_color};
+        }}
+        """
+        self.setStyleSheet(custom_css)
+        display_message(self.console_output,
+                        "Custom theme applied!", "success")
 
-    
-    def save_pane_position(self, pos, index):
-        self.settings["pane_position"] = pos
-        save_settings(self.settings)
-
-    def paste_from_clipboard(self):
-        try:
-            paste_from_clipboard(self.url_input)
-        except Exception as e:
-            display_message(self.console_output, f"Error: {e}", "error")
-
-    def load_url_from_recent(self, item):
-        recent_downloads = load_recent_downloads()
-        index = self.recent_list.row(item)
-        if 0 <= index < len(recent_downloads):
-            self.url_input.setText(recent_downloads[index]["url"])
-    
-    def open_menu(self, position):
-        menu = QMenu(self)
-        open_action = menu.addAction("Open file")
-        action = menu.exec(self.recent_list.viewport().mapToGlobal(position)) # changed from exec_ to exec
-        if action == open_action:
-            self.open_file_from_recent_list(position)
-            
-    def open_file_from_recent_list(self,position):
-        item = self.recent_list.itemAt(position)
-        if item:
-             recent_downloads = load_recent_downloads()
-             index = self.recent_list.row(item)
-             if 0 <= index < len(recent_downloads):
-                file_path = recent_downloads[index].get('file_path', '')
-                if file_path and os.path.exists(file_path):
-                    try:
-                        if sys.platform.startswith('darwin'):
-                            subprocess.call(('open', file_path))
-                        elif os.name == 'nt':
-                            os.startfile(file_path)
-                        elif os.name == 'posix':
-                           subprocess.call(('xdg-open', file_path))
-                        display_message(self.console_output, f"Opened file: {file_path}", "info")
-                    except Exception as e:
-                        display_message(self.console_output, f"Failed to open file: {e}", "error")
-                else:
-                    display_message(self.console_output, "File does not exist.", "error")
-
-    def clear_console(self):
-        self.console_output.clear()
-
-    def select_save_directory(self):
-        directory = QFileDialog.getExistingDirectory(self, "Select Save Directory")
-        if directory:
-            self.settings["save_directory"] = directory
-            save_settings(self.settings)
-            display_message(self.console_output, f"Save directory selected: {directory}")
-
-    def open_save_directory(self):
-        os.startfile(self.settings.get("save_directory", os.getcwd()))
-
-    def update_recent_downloads(self, title, url, file_path):
-        format_type = os.path.splitext(file_path)[1][1:].upper()  # Extract file format
-        language = self.language_dropdown.currentText()  # Get selected language
-
-        # Load existing recent downloads
-        recent_downloads = load_recent_downloads()
-
-        # Remove duplicates (same title, URL, format, and language)
-        recent_downloads = [
-            item for item in recent_downloads
-            if not (item['title'] == title and item['url'] == url and item['file_path'] == file_path and item.get('language') == language)
-        ]
-
-        # Add the new entry to the top
-        recent_downloads.insert(0, {
-            'title': title,
-            'url': url,
-            'file_path': file_path,
-            'language': language
-        })
-
-        # Save back to the JSON file
-        save_recent_downloads(recent_downloads)
-
-        # Update the UI: Clear and reload
-        self.recent_list.clear()
-        for item in recent_downloads:
-            lang_tag = f"[{item.get('language', 'N/A').upper()}]"  # Show language
-            display_title = f"{item['title']} ({lang_tag}, {os.path.splitext(item['file_path'])[1][1:].upper()})"
-            self.recent_list.addItem(display_title)
-
-
-
-    def toggle_theme(self):
-        self.dark_mode = not self.dark_mode # <-- Updated the logic
-        self.settings["dark_mode"] = self.dark_mode
-        self.apply_theme() # Applying the theme on toggle
-        save_settings(self.settings)
-
-    
-    
-
-    def change_theme(self, index):
-        if index < 0:  # No valid selection
-            return
-        
-        theme_key = self.theme_dropdown.itemData(index)
-        if theme_key == "Default Theme":
-            self.apply_fallback_theme("default")
-            self.settings["current_theme"] = "default"
-        else:
-            self.settings["current_theme"] = theme_key
-            self.load_theme_from_file(theme_key)
-
-        save_settings(self.settings)
-        display_message(self.console_output, f"Applied theme: {self.theme_dropdown.currentText()}")
-
-    def save_output_format(self):
+    def save_general_settings(self):
+        """Save settings from the General tab."""
         self.settings["output_format"] = self.output_format_dropdown.currentText()
-        save_settings(self.settings)
-    
-    def save_language(self):
         self.settings["language"] = self.language_dropdown.currentText()
-        save_settings(self.settings)
-        
-    def save_file_policy(self):
         self.settings["file_policy"] = self.file_policy_dropdown.currentText()
         save_settings(self.settings)
 
+    def select_save_directory(self):
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select Save Directory")
+        if directory:
+            self.save_directory = directory
+            self.settings["save_directory"] = directory
+            save_settings(self.settings)
+            self.directory_label.setText(directory)
+
+    def paste_from_clipboard(self):
+        paste_from_clipboard(self.url_input)
 
     def start_download(self):
         video_url = self.url_input.text()
         if not video_url:
-            display_message(self.console_output, "YouTube URL cannot be empty.", "error")
+            display_message(self.console_output,
+                            "YouTube URL cannot be empty.", "error")
             return
-        display_message(self.console_output, f"Starting download for: {video_url}")
+
+        display_message(self.console_output,
+                        f"Starting download for: {video_url}", "info")
         self.progress_bar.setValue(0)
         self.cancel_button.setEnabled(True)
 
-        # Retrieve settings
-        output_format = self.output_format_dropdown.currentText().lower()
-        language = self.language_dropdown.currentText().lower()
-        file_policy = self.file_policy_dropdown.currentText().lower()
-
-        save_directory = self.settings.get("save_directory", os.getcwd())
-        os.makedirs(save_directory, exist_ok=True)
-        
         self.download_worker = DownloadWorker(
             video_url,
-            [output_format],
-            language,
-            save_directory,
+            [self.output_format.lower()],
+            self.language,
+            self.save_directory,
             self.console_output,
             self.update_recent_downloads,
-            file_policy
+            self.settings["file_policy"]
         )
+
         self.download_worker.progress_updated.connect(self.update_progress)
         self.download_worker.finished.connect(self.download_finished)
         self.download_worker.start()
@@ -416,13 +437,49 @@ class YouTubeTranscriptDownloader(QMainWindow):
     def cancel_download(self):
         self.download_worker.stop()
         self.cancel_button.setEnabled(False)
-        display_message(self.console_output, "Download cancelled by user.", "info")
+        display_message(self.console_output, "Download cancelled.", "info")
 
     def download_finished(self):
         self.progress_bar.setValue(100)
+        QTimer.singleShot(1000, lambda: self.progress_bar.setValue(0))  # Reset to 0 after 1 seconds
         self.cancel_button.setEnabled(False)
-        #display_message(self.console_output, "Download finished", "info") # Removed from here
 
+
+    def load_url_from_recent(self, item):
+        recent_downloads = load_recent_downloads()
+        index = self.recent_list.row(item)
+        if 0 <= index < len(recent_downloads):
+            self.url_input.setText(recent_downloads[index]["url"])
+
+    def update_recent_downloads(self, title, url, file_path):
+        """Update the recent downloads list."""
+        recent_downloads = load_recent_downloads()
+
+        # Avoid duplicate entries
+        if any(entry["url"] == url for entry in recent_downloads):
+            return
+
+        # Add the new download
+        recent_downloads.insert(0, {
+            "title": title,
+            "url": url,
+            "file_path": file_path,
+            "format": self.output_format,   # Include format
+            "language": self.language       # Include language
+        })
+        save_recent_downloads(recent_downloads)
+
+        # Update the UI with the new item
+        display_text = f"{title} [{self.output_format.upper()} | {self.language.upper()}] - {url}"
+        self.recent_list.insertItem(0, display_text)
+
+        # Limit the number of items in the list
+        if len(recent_downloads) > 100:
+            recent_downloads.pop()
+            save_recent_downloads(recent_downloads)
+
+
+            
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = YouTubeTranscriptDownloader()
