@@ -1,0 +1,192 @@
+/* Main Window */
+QMainWindow {
+    background-color: #C8E6C9; /* Light green */
+    color: #1B5E20; /* Dark green text */
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #A5D6A7; /* Muted green */
+    color: #1B5E20;
+    border: 1px solid #388E3C;
+}
+
+/* Input Fields and Lists */
+QLineEdit, QComboBox, QTextEdit, QListWidget {
+    background-color: #E8F5E9; /* Very light green */
+    color: #1B5E20;
+    selection-background-color: #4CAF50; /* Vibrant green for selection */
+    selection-color: #FFFFFF; /* White text for selection */
+    border: 1px solid #388E3C;
+}
+
+/* Dialogs */
+QDialog {
+    background-color: #C8E6C9;
+    color: #1B5E20;
+}
+
+/* Tabs */
+QTabWidget::pane {
+    background-color: #C8E6C9;
+    border: 1px solid #388E3C;
+}
+
+QTabBar::tab {
+    background-color: #A5D6A7;
+    color: #1B5E20;
+    padding: 5px;
+    border: 1px solid #388E3C;
+}
+
+QTabBar::tab:selected {
+    background-color: #4CAF50; /* Darker green for selected tab */
+    color: #FFFFFF;
+    border: 1px solid #2E7D32;
+}
+
+QTabWidget::tab-bar {
+    alignment: center;
+}
+
+/* Scrollbars */
+QScrollBar:vertical, QScrollBar:horizontal {
+    background: #C8E6C9;
+    width: 10px;
+    border: 1px solid #388E3C;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+    background: #A5D6A7;
+    border-radius: 5px;
+    min-height: 20px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    background-color: #C8E6C9;
+    border: 1px solid #388E3C;
+    height: 10px;
+}
+
+/* Labels */
+QLabel {
+    color: #1B5E20;
+}
+
+/* Splitter */
+QSplitter::handle {
+    background-color: #388E3C;
+}
+
+/* List Widgets */
+QListWidget::item:hover {
+    background-color: #81C784;
+}
+
+QListWidget::item:selected {
+    background-color: #4CAF50;
+    color: #FFFFFF;
+}
+
+/* Menus */
+QMenu {
+    background-color: #C8E6C9;
+    color: #1B5E20;
+    border: 1px solid #388E3C;
+}
+
+QMenu::item {
+    background-color: #C8E6C9;
+    color: #1B5E20;
+}
+
+QMenu::item:selected {
+    background-color: #A5D6A7;
+    color: #FFFFFF;
+}
+
+/* ComboBox */
+QComboBox {
+    background-color: #E8F5E9; /* Light green */
+    color: #1B5E20;
+    border: 1px solid #388E3C;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #E8F5E9; /* Light green for the dropdown menu */
+    color: #1B5E20;
+    selection-background-color: #4CAF50; /* Vibrant green for selection */
+    selection-color: #FFFFFF;
+    border: 1px solid #388E3C;
+}
+
+QComboBox::drop-down {
+    background-color: #A5D6A7;
+    border: none;
+}
+
+QComboBox::down-arrow {
+    border: solid #1B5E20; /* Dark arrow */
+    border-width: 0 3px 3px 0; /* Top, Right, Bottom, Left */
+    width: 10px;
+    height: 10px;
+    margin: 5px; /* Add spacing around the arrow */
+    background: none; /* Ensure no background covers the arrow */
+}
+
+QComboBox::down-arrow:hover {
+    border-color: #4CAF50; /* Vibrant green for hover */
+}
+
+/* Status Bar */
+QStatusBar {
+    background-color: #C8E6C9;
+    color: #1B5E20;
+}
+
+/* Progress Bar */
+QProgressBar {
+    border: 2px solid #1B5E20;
+    border-radius: 5px;
+    background-color: #C8E6C9;
+    color: #1B5E20;
+}
+
+QProgressBar::chunk {
+    background-color: #4CAF50;
+    border-radius: 5px;
+}
+
+/* ToolBar */
+QToolBar {
+    background-color: #C8E6C9;
+    color: #1B5E20;
+    border: 1px solid #388E3C;
+}
+
+QToolBar::handle {
+    background-color: #A5D6A7;
+}
+
+QToolBar::separator {
+    background-color: #388E3C;
+}
+
+/* Text Edit */
+QTextEdit {
+    background-color: #E8F5E9; /* Light green */
+    color: #1B5E20;
+    border: 1px solid #388E3C;
+}
+
+/* Dropdown Styling */
+QMenu::indicator {
+    background-color: #C8E6C9;
+    color: #1B5E20;
+}
+
+QMenu::indicator:enabled:hover {
+    background-color: #A5D6A7;
+    color: #FFFFFF;
+}

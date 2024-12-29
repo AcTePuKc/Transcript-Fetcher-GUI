@@ -1,0 +1,72 @@
+QMainWindow {
+    background-color: #EDEDED;
+    color: #222222;
+}
+
+QPushButton {
+    background-color: #D6D6D6;
+    color: #222222;
+    border: 1px solid #AAAAAA;
+}
+
+QLineEdit, QComboBox, QTextEdit, QListWidget {
+    background-color: #F8F8F8;
+    color: #222222;
+    selection-background-color: #87CEEB;
+}
+
+QScrollBar:vertical {
+    border: none;
+    background: #EDEDED;
+    width: 10px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: #BDBDBD;
+    min-height: 20px;
+    border-radius: 5px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QComboBox QAbstractItemView {
+    border: 1px solid #BDBDBD;
+    background-color: #F8F8F8;
+    color: #222222;
+}
+
+QLabel {
+    color: #222222;
+}
+
+QSplitter::handle {
+    background-color: #BBBBBB;
+}
+
+QListWidget::item:hover {
+    background-color: #D0D0D0;
+}
+
+QListWidget::item:selected {
+    background-color: #87CEEB;
+    color: #222222;
+}
+
+QMenu {
+    background-color: #F2F2F2;
+    color: #222222;
+    border: 1px solid #CCCCCC;
+}
+
+QMenu::item {
+    background-color: #F2F2F2;
+    color: #222222;
+}
+
+QMenu::item:selected {
+    background-color: #87CEEB;
+    color: #222222;
+}

@@ -1,0 +1,190 @@
+/* Main Window */
+QMainWindow {
+    background-color: #F8BBD0; /* Light pink */
+    color: #880E4F; /* Deep pink text */
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #F48FB1; /* Muted pink */
+    color: #880E4F;
+    border: 1px solid #C2185B;
+}
+
+/* Input Fields and Lists */
+QLineEdit, QComboBox, QTextEdit, QListWidget {
+    background-color: #FCE4EC; /* Very light pink */
+    color: #880E4F;
+    selection-background-color: #AD1457; /* Rich pink for selection */
+    selection-color: #FFFFFF;
+    border: 1px solid #C2185B;
+}
+
+/* Dialogs */
+QDialog {
+    background-color: #F8BBD0;
+    color: #880E4F;
+}
+
+/* Tabs */
+QTabWidget::pane {
+    background-color: #F8BBD0;
+    border: 1px solid #C2185B;
+}
+QTabWidget::tab-bar {
+    alignment: center;
+}
+
+QTabBar::tab {
+    background-color: #F48FB1;
+    color: #880E4F;
+    padding: 5px;
+    border: 1px solid #C2185B;
+}
+
+QTabBar::tab:selected {
+    background-color: #AD1457; /* Darker pink for selected tab */
+    color: #FFFFFF;
+    border: 1px solid #880E4F;
+}
+
+/* Scrollbars */
+QScrollBar:vertical, QScrollBar:horizontal {
+    background: #F8BBD0;
+    width: 10px;
+    border: 1px solid #C2185B;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+    background: #F48FB1;
+    border-radius: 5px;
+    min-height: 20px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    background-color: #F8BBD0;
+    border: 1px solid #C2185B;
+    height: 10px;
+}
+
+/* Labels */
+QLabel {
+    color: #880E4F;
+}
+
+/* Splitter */
+QSplitter::handle {
+    background-color: #C2185B;
+}
+
+/* List Widgets */
+QListWidget::item:hover {
+    background-color: #F06292;
+}
+
+QListWidget::item:selected {
+    background-color: #AD1457;
+    color: #FFFFFF;
+}
+
+/* Menus */
+QMenu {
+    background-color: #F8BBD0;
+    color: #880E4F;
+    border: 1px solid #C2185B;
+}
+
+QMenu::item {
+    background-color: #F8BBD0;
+    color: #880E4F;
+}
+
+QMenu::item:selected {
+    background-color: #F48FB1;
+    color: #FFFFFF;
+}
+
+/* ComboBox */
+QComboBox::drop-down {
+    background-color: #F48FB1;
+    border: none;
+}
+
+QComboBox::down-arrow {
+    border: solid #880E4F; /* Use the deep pink theme color */
+    border-width: 0 3px 3px 0; /* Top, Right, Bottom, Left */
+    width: 10px;
+    height: 10px;
+    margin: 5px; /* Add spacing around the arrow */
+    background: none; /* Ensure no background covers the arrow */
+}
+
+QComboBox::down-arrow:hover {
+    border-color: #F06292; /* Brighter pink for hover */
+}
+
+/* Status Bar */
+QStatusBar {
+    background-color: #F8BBD0;
+    color: #880E4F;
+}
+
+/* Progress Bar */
+QProgressBar {
+    border: 2px solid #880E4F;
+    border-radius: 5px;
+    background-color: #F8BBD0;
+    color: #880E4F;
+}
+
+QProgressBar::chunk {
+    background-color: #AD1457;
+    border-radius: 5px;
+}
+
+/* ToolBar */
+QToolBar {
+    background-color: #F8BBD0;
+    color: #880E4F;
+    border: 1px solid #C2185B;
+}
+
+QToolBar::handle {
+    background-color: #F48FB1;
+}
+
+QToolBar::separator {
+    background-color: #C2185B;
+}
+
+
+/* TextEdit */
+QTextEdit {
+    background-color: #f8bacf;  
+    color: #880E4F;
+    border: 1px solid #C2185B;
+}              
+
+QTextEdit:hover {
+    background-color: #F48FB1;
+    color: #880E4F;
+}
+
+QTextEdit:focus {
+    background-color: #f8bacf;
+    color: #FFFFFF;
+}
+/* Dropdown Styling */
+QComboBox QAbstractItemView {
+    background-color: #FCE4EC; /* Very light pink for the dropdown menu */
+    color: #880E4F; /* Deep pink text */
+    selection-background-color: #AD1457; /* Rich pink for selected item */
+    selection-color: #FFFFFF; /* White text for selected item */
+    border: 1px solid #C2185B; /* Pink border for dropdown */
+}
+
+QComboBox::item:hover {
+    background-color: #F48FB1; /* Muted pink on hover */
+    color: #FFFFFF; /* White text for better contrast */
+}
