@@ -1,51 +1,85 @@
+/* Main Window */
 QMainWindow {
+    background-color: #212121; /* Dark gray */
+    color: #FFFFFF; /* White text */
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #424242; /* Medium dark gray */
+    color: #FFFFFF;
+    border: 1px solid #616161;
+}
+
+/* Input Fields and Lists */
+QLineEdit, QComboBox, QTextEdit, QListWidget {
+    background-color: #424242; /* Medium dark gray */
+    color: #FFFFFF;
+    selection-background-color: #4D94FF; /* Vibrant blue for selection */
+    selection-color: #FFFFFF; /* White text for selection */
+    border: 1px solid #616161;
+}
+
+/* Dialogs */
+QDialog {
     background-color: #212121;
     color: #FFFFFF;
 }
 
-QPushButton {
-    background-color: #424242;
-    color: #FFFFFF;
+/* Tabs */
+QTabWidget::pane {
+    background-color: #212121;
     border: 1px solid #616161;
 }
 
-QLineEdit, QComboBox, QTextEdit, QListWidget {
+QTabBar::tab {
     background-color: #424242;
     color: #FFFFFF;
-    selection-background-color: #4D94FF;
+    padding: 5px;
+    border: 1px solid #616161;
 }
 
-QScrollBar:vertical {
-    border: none;
-    background: #424242;
+QTabBar::tab:selected {
+    background-color: #4D94FF; /* Vibrant blue for selected tab */
+    color: #FFFFFF;
+    border: 1px solid #1E88E5;
+}
+
+QTabWidget::tab-bar {
+    alignment: center;
+}
+
+/* Scrollbars */
+QScrollBar:vertical, QScrollBar:horizontal {
+    background: #212121;
     width: 10px;
-    margin: 0px;
-}
-
-QScrollBar::handle:vertical {
-    background: #616161;
-    min-height: 20px;
+    border: 1px solid #616161;
     border-radius: 5px;
 }
 
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+    background: #424242;
+    border-radius: 5px;
+    min-height: 20px;
+}
+
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0px;
-}
-
-QComboBox QAbstractItemView {
+    background-color: #212121;
     border: 1px solid #616161;
-    background-color: #424242;
-    color: #FFFFFF;
+    height: 10px;
 }
 
+/* Labels */
 QLabel {
     color: #FFFFFF;
 }
 
+/* Splitter */
 QSplitter::handle {
     background-color: #616161;
 }
 
+/* List Widgets */
 QListWidget::item:hover {
     background-color: #333333;
 }
@@ -55,6 +89,7 @@ QListWidget::item:selected {
     color: #FFFFFF;
 }
 
+/* Menus */
 QMenu {
     background-color: #2C2C2C;
     color: #FFFFFF;
@@ -67,6 +102,91 @@ QMenu::item {
 }
 
 QMenu::item:selected {
+    background-color: #4D94FF;
+    color: #FFFFFF;
+}
+
+/* ComboBox */
+QComboBox {
+    background-color: #424242; /* Medium dark gray */
+    color: #FFFFFF;
+    border: 1px solid #616161;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #424242; /* Medium dark gray for the dropdown menu */
+    color: #FFFFFF;
+    selection-background-color: #4D94FF; /* Vibrant blue for selection */
+    selection-color: #FFFFFF;
+    border: 1px solid #616161;
+}
+
+QComboBox::drop-down {
+    background-color: #616161;
+    border: none;
+}
+
+QComboBox::down-arrow {
+    border: solid #FFFFFF; /* White arrow */
+    border-width: 0 3px 3px 0; /* Top, Right, Bottom, Left */
+    width: 10px;
+    height: 10px;
+    margin: 5px; /* Add spacing around the arrow */
+    background: none; /* Ensure no background covers the arrow */
+}
+
+QComboBox::down-arrow:hover {
+    border-color: #4D94FF; /* Vibrant blue for hover */
+}
+
+/* Status Bar */
+QStatusBar {
+    background-color: #212121;
+    color: #FFFFFF;
+}
+
+/* Progress Bar */
+QProgressBar {
+    border: 2px solid #FFFFFF;
+    border-radius: 5px;
+    background-color: #212121;
+    color: #FFFFFF;
+}
+
+QProgressBar::chunk {
+    background-color: #4D94FF;
+    border-radius: 5px;
+}
+
+/* ToolBar */
+QToolBar {
+    background-color: #212121;
+    color: #FFFFFF;
+    border: 1px solid #616161;
+}
+
+QToolBar::handle {
+    background-color: #424242;
+}
+
+QToolBar::separator {
+    background-color: #616161;
+}
+
+/* Text Edit */
+QTextEdit {
+    background-color: #424242; /* Medium dark gray */
+    color: #FFFFFF;
+    border: 1px solid #616161;
+}
+
+/* Dropdown Styling */
+QMenu::indicator {
+    background-color: #2C2C2C;
+    color: #FFFFFF;
+}
+
+QMenu::indicator:enabled:hover {
     background-color: #4D94FF;
     color: #FFFFFF;
 }
